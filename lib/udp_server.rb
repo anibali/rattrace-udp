@@ -56,8 +56,8 @@ class UdpServer
     @endpoint = get_in(config, %w[outgoing endpoint])
     @max_message_length = get_in(config, %w[incoming max-message-length])
 
-    @auth_username = %w[outgoing username]
-    @auth_password = %w[outgoing password]
+    @auth_username = get_in(config, %w[outgoing username])
+    @auth_password = get_in(config, %w[outgoing password])
   end
 
   def process_message(msg)
