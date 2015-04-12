@@ -1,0 +1,9 @@
+incoming:
+  port: 9252
+  max-message-length: 1024
+outgoing:
+  host: localhost
+  port: 3000
+  endpoint: /reports
+  username: udp_server
+  password: super_secret_password
