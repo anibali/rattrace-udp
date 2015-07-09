@@ -7,7 +7,18 @@
 #
 #     require 'socket'
 #     udp = UDPSocket.new
-#     report = [1, 12345, "Blah"].pack("S<S<C*")
+#     data = [
+#       *"RATR".unpack("C*"), # Identifier
+#       1,                    # Protocol version
+#       1234,                 # Trap ID
+#       100,                  # Send time
+#       1,                    # Number of report chunks
+#       1,                    # First chunk type (battery level)
+#       50,                   # First chunk timestamp
+#       2,                    # First chunk length (2 bytes)
+#       2**16 - 1,            # Battery level (corresponds to 100%)
+#     ]
+#     report = data.pack("C4 C I< I< C   C I< C S<")
 #     udp.send report, 0, "127.0.0.1", 9252
 
 # Allow us to require other files in lib/
@@ -45,6 +56,10 @@ def log_error(msg)
 end
 
 class UdpServer
+  CHUNK_TYPES_V1 = {
+    1 => :battery_level
+  }
+
   def initialize(config)
     @udp = UDPSocket.new
     @udp.bind(Socket::INADDR_ANY, get_in(config, %w[incoming port]))
@@ -61,20 +76,56 @@ class UdpServer
   end
 
   def process_message(msg)
-    # TODO: We probably want to do some simple processing on the message here
-    # to reduce load on the web server
-
     # TODO: Verify the source of the message. Encryption?
 
-    unpacked = msg.unpack("S<S<C*")
-    version = unpacked[0]
-    trap_id = unpacked[1]
-    rest = unpacked[2..-1].pack("C*")
+    ptr = 0
+
+    if msg[ptr...ptr + 4] != "RATR"
+      log_error "Bad packet identifier received"
+      return
+    end
+
+    ptr += 4
+
+    header = msg[ptr...ptr + 10].unpack("C I< I< C")
+    protocol_version, trap_id, send_time, n_report_chunks = *header
+
+    ptr += 10
+
+    chunks = []
+
+    n_report_chunks.times do
+      chunk_header = msg[ptr...ptr + 6].unpack("C I< C")
+      chunk_type, chunk_time, chunk_length = *chunk_header
+      ptr += 6
+
+      type = CHUNK_TYPES_V1[chunk_type]
+
+      unless type.nil?
+        chunk = {
+          type: type,
+          timestamp: chunk_time
+        }
+
+        case type
+        when :battery_level
+          chunk_data = msg[ptr...ptr + 2].unpack("S<")
+          chunk[:battery_charge] = chunk_data[0].to_f / (2**16 - 1)
+        else
+          log_error "Encountered unknown report chunk type"
+        end
+
+        chunks << chunk
+      end
+
+      ptr += chunk_length
+    end
 
     json = {
       original_message: Base64.encode64(msg).strip,
-      protocol_version: version,
-      trap_id: unpacked[1]
+      protocol_version: protocol_version,
+      trap_id: trap_id,
+      chunks: chunks
     }
 
     log_info("Sending JSON: #{json.to_json}")
