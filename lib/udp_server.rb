@@ -18,7 +18,7 @@
 #       2,                    # First chunk length (2 bytes)
 #       2**16 - 1,            # Battery level (corresponds to 100%)
 #     ]
-#     report = data.pack("C4 C I< I< C   C I< C S<")
+#     report = data.pack("C4 C L< L< C   C L< C S<")
 #     udp.send report, 0, "127.0.0.1", 9252
 
 # Allow us to require other files in lib/
@@ -75,9 +75,7 @@ class UdpServer
     @auth_password = get_in(config, %w[outgoing password])
   end
 
-  def process_message(msg)
-    # TODO: Verify the source of the message. Encryption?
-
+  def process_ratr_request(msg, sender_info)
     ptr = 0
 
     if msg[ptr...ptr + 4] != "RATR"
@@ -87,7 +85,7 @@ class UdpServer
 
     ptr += 4
 
-    header = msg[ptr...ptr + 10].unpack("C I< I< C")
+    header = msg[ptr...ptr + 10].unpack("C L< L< C")
     protocol_version, trap_id, send_time, n_report_chunks = *header
 
     ptr += 10
@@ -95,7 +93,7 @@ class UdpServer
     chunks = []
 
     n_report_chunks.times do
-      chunk_header = msg[ptr...ptr + 6].unpack("C I< C")
+      chunk_header = msg[ptr...ptr + 6].unpack("C L< C")
       chunk_type, chunk_time, chunk_length = *chunk_header
       ptr += 6
 
@@ -149,13 +147,33 @@ class UdpServer
     log_info "JSON successfully sent to server"
   end
 
+  def process_time_request(msg, sender_info)
+    seconds_since_2000 = (Time.now - Time.new(2000, 1, 1)).to_i
+
+    @udp.send seconds_since_2000.to_s, 0, sender_info[3], sender_info[1]
+  end
+
+  def process_request(msg, sender_info)
+    log_info "Received message: #{msg.inspect}"
+
+    # TODO: Verify the source of the message. Encryption? Hash?
+
+    case msg[0..3]
+    when 'RATR'
+      process_ratr_request(msg, sender_info)
+    when 'TIME'
+      process_time_request(msg, sender_info)
+    else
+      log_error "Unknown request tag: #{msg[0..3]}"
+    end
+  end
+
   def run
     loop do
       # Receive UDP message
       msg, sender_info = *@udp.recvfrom(@max_message_length)
-      log_info "Received message: #{msg.inspect}"
 
-      process_message(msg)
+      process_request(msg, sender_info)
     end
   end
 end
