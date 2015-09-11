@@ -30,6 +30,7 @@ require 'open-uri'
 require 'yaml'
 require 'json'
 require 'base64'
+require 'erubis'
 
 def get_in(hash, keys)
   object = hash
@@ -63,6 +64,8 @@ class UdpServer
   def initialize(config)
     @udp = UDPSocket.new
     @udp.bind(Socket::INADDR_ANY, get_in(config, %w[incoming port]))
+
+    log_info "RatTrace UDP server started"
 
     @http = Net::HTTP.new(
       get_in(config, %w[outgoing host]),
@@ -126,7 +129,7 @@ class UdpServer
       chunks: chunks
     }
 
-    log_info("Sending JSON: #{json.to_json}")
+    log_info "Sending JSON: #{json.to_json}"
 
     request = Net::HTTP::Post.new(@endpoint, initheader = {'Content-Type' => 'application/json'})
     request.basic_auth(@auth_username, @auth_password)
@@ -135,7 +138,7 @@ class UdpServer
     begin
       response = @http.request(request)
     rescue Errno::ECONNREFUSED
-      log_error "Destination server unavailable"
+      log_error "Unable to connect to #{@http.address}:#{@http.port}"
       return
     end
 
@@ -180,7 +183,8 @@ end
 
 def main()
   config_file = File.join(File.expand_path("../../", __FILE__), "config.yml")
-  config = YAML.load(File.read(config_file))
+  config_template = Erubis::Eruby.new(File.read(config_file))
+  config = YAML.load(config_template.result)
 
   server = UdpServer.new(config)
   server.run
