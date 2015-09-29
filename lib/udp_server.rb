@@ -126,6 +126,7 @@ class UdpServer
       original_message: Base64.encode64(msg).strip,
       protocol_version: protocol_version,
       trap_id: trap_id,
+      send_time: send_time,
       chunks: chunks
     }
 
@@ -181,7 +182,7 @@ class UdpServer
   end
 end
 
-def main()
+def main
   config_file = File.join(File.expand_path("../../", __FILE__), "config.yml")
   config_template = Erubis::Eruby.new(File.read(config_file))
   config = YAML.load(config_template.result)

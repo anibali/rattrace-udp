@@ -2,8 +2,8 @@ incoming:
   port: 9252
   max-message-length: 1024
 outgoing:
-  host: <%= ENV['DEST_PORT_3000_TCP_ADDR'] %>
-  port: <%= ENV['DEST_PORT_3000_TCP_PORT'] %>
+  host: <%= ENV['WEB_PORT_3000_TCP_ADDR'] %>
+  port: <%= ENV['WEB_PORT_3000_TCP_PORT'] %>
   endpoint: /reports
-  username: <%= ENV['DEST_USER'] %>
-  password: <%= ENV['DEST_PASS'] %>
+  username: <%= ENV['UDP_AUTH_USER'] %>
+  password: <%= ENV['UDP_AUTH_PASS'] %>

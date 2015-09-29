@@ -1,4 +1,4 @@
-FROM ruby:2.2
+FROM anibali/rpi-ruby:2.2
 
 # Enforce up-to-date Gemfile.lock
 RUN bundle config --global frozen 1
