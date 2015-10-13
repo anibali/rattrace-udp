@@ -58,7 +58,9 @@ end
 
 class UdpServer
   CHUNK_TYPES_V1 = {
-    1 => :battery_level
+    1 => :battery_level,
+    2 => :bait_level,
+    3 => :trap_opened
   }
 
   def initialize(config)
@@ -102,22 +104,28 @@ class UdpServer
 
       type = CHUNK_TYPES_V1[chunk_type]
 
-      unless type.nil?
-        chunk = {
-          type: type,
-          timestamp: chunk_time
-        }
+      chunk = {
+        chunk_type: chunk_type,
+        timestamp: chunk_time,
+        data: {}
+      }
 
-        case type
-        when :battery_level
-          chunk_data = msg[ptr...ptr + 2].unpack("S<")
-          chunk[:battery_charge] = chunk_data[0].to_f / (2**16 - 1)
-        else
-          log_error "Encountered unknown report chunk type"
-        end
-
-        chunks << chunk
+      case type
+      when :battery_level
+        battery_charge = *msg[ptr...ptr + 2].unpack("S<")
+        chunk[:data][:battery_charge] = battery_charge
+      when :bait_level
+        bait_id, bait_level = *msg[ptr...ptr + 4].unpack("S<S<")
+        chunk[:data][:bait_id] = bait_id
+        chunk[:data][:bait_level] = bait_level
+      when :trap_opened
+        opened_at = *msg[ptr...ptr + 4].unpack("L<")
+        chunk[:data][:opened_at] = opened_at
+      else
+        log_error "Encountered unknown report chunk type"
       end
+
+      chunks << chunk
 
       ptr += chunk_length
     end
@@ -130,7 +138,7 @@ class UdpServer
       chunks: chunks
     }
 
-    log_info "Sending JSON: #{json.to_json}"
+    log_info "Sending JSON:\n#{JSON.pretty_generate(json)}"
 
     request = Net::HTTP::Post.new(@endpoint, initheader = {'Content-Type' => 'application/json'})
     request.basic_auth(@auth_username, @auth_password)
