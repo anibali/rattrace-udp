@@ -106,20 +106,20 @@ class UdpServer
 
       chunk = {
         chunk_type: chunk_type,
-        timestamp: chunk_time,
+        generated_at: chunk_time,
         data: {}
       }
 
       case type
       when :battery_level
-        battery_charge = *msg[ptr...ptr + 2].unpack("S<")
-        chunk[:data][:battery_charge] = battery_charge
+        battery_charge = msg[ptr...ptr + 2].unpack("S<")[0]
+        chunk[:data][:level] = battery_charge
       when :bait_level
         bait_id, bait_level = *msg[ptr...ptr + 4].unpack("S<S<")
         chunk[:data][:bait_id] = bait_id
-        chunk[:data][:bait_level] = bait_level
+        chunk[:data][:level] = bait_level
       when :trap_opened
-        opened_at = *msg[ptr...ptr + 4].unpack("L<")
+        opened_at = msg[ptr...ptr + 4].unpack("L<")[0]
         chunk[:data][:opened_at] = opened_at
       else
         log_error "Encountered unknown report chunk type"
@@ -134,7 +134,7 @@ class UdpServer
       original_message: Base64.encode64(msg).strip,
       protocol_version: protocol_version,
       trap_id: trap_id,
-      send_time: send_time,
+      sent_at: send_time,
       chunks: chunks
     }
 
