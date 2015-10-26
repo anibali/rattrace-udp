@@ -138,7 +138,7 @@ class UdpServer
       chunks: chunks
     }
 
-    log_info "Sending JSON:\n#{JSON.pretty_generate(json)}"
+    # log_info "Sending JSON:\n#{JSON.pretty_generate(json)}"
 
     request = Net::HTTP::Post.new(@endpoint, initheader = {'Content-Type' => 'application/json'})
     request.basic_auth(@auth_username, @auth_password)
